@@ -18,7 +18,7 @@ Se comparan cuatro redes con alrededor de 25 mil parámetros cada una, más una 
 | RNN simple | 87,5% | 0,876 |
 | Regresión logística | 58,3% | 0,554 |
 
-El análisis completo está en `Informe_TP_RNN_HAR.pdf`.
+El análisis completo está en `informe_nicolas_ferrero.pdf`.
 
 ## Contenido
 
@@ -28,7 +28,7 @@ El análisis completo está en `Informe_TP_RNN_HAR.pdf`.
 
 ## Cómo reproducirlo
 
-1. Abrir `rnn_har.ipynb` en Google Colab.
+1. Abrir `tp_nicolas_ferrero.ipynb` en Google Colab.
 2. Elegir GPU en Entorno de ejecución > Cambiar tipo de entorno de ejecución > GPU T4.
 3. Ejecutar todas las celdas (Entorno de ejecución > Ejecutar todas).
 
