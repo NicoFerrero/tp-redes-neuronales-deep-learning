@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laboratorio de convoluciones 1D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: una columna de lectura con "mesas de trabajo" (controles + dibujo) por concepto */
+:root {
+  --bg: #F1F3F6;
+  --surface: #FFFFFF;
+  --ink: #18202B;
+  --muted: #5A6574;
+  --line: #D3D9E1;
+  --signal: #2E66C9;
+  --signal-soft: #DCE6F8;
+  --kernel: #BF5E12;
+  --kernel-soft: #F6E0CC;
+  --pad: #8C97A4;
+  --pad-soft: #E4E8ED;
+  --out: #1D8466;
+  --out-soft: #D3ECE3;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", Roboto, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151B; --surface: #19202A; --ink: #E5E9EF; --muted: #99A5B4; --line: #2B3441;
+    --signal: #6F9DF0; --signal-soft: #1E2F4D; --kernel: #EB9750; --kernel-soft: #45301E;
+    --pad: #6E7987; --pad-soft: #252D38; --out: #4DC29F; --out-soft: #163A30;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151B; --surface: #19202A; --ink: #E5E9EF; --muted: #99A5B4; --line: #2B3441;
+  --signal: #6F9DF0; --signal-soft: #1E2F4D; --kernel: #EB9750; --kernel-soft: #45301E;
+  --pad: #6E7987; --pad-soft: #252D38; --out: #4DC29F; --out-soft: #163A30;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 56px; }
+header { display: grid; gap: 12px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(30px, 5vw, 44px); line-height: 1.08; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--f-display); font-weight: 800; font-size: clamp(22px, 3.4vw, 28px); line-height: 1.15; margin: 0; text-wrap: balance; }
+h3 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.lead { font-size: 18px; color: var(--muted); }
+section { display: grid; gap: 18px; }
+.num { font-family: var(--f-mono); color: var(--kernel); font-weight: 500; margin-right: 8px; }
+.bench { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: grid; gap: 18px; min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: end; }
+.ctl { display: grid; gap: 6px; min-width: 150px; }
+.ctl label, .ctl .lbl { font-size: 13px; font-weight: 600; color: var(--muted); }
+.ctl output { font-family: var(--f-mono); color: var(--ink); font-weight: 500; }
+input[type="range"] { width: 170px; accent-color: var(--kernel); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { font: 500 14px var(--f-mono); background: transparent; color: var(--ink); border: 0; padding: 6px 12px; cursor: pointer; border-right: 1px solid var(--line); }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--kernel); color: var(--surface); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--kernel); outline-offset: 2px; }
+.scroll { overflow-x: auto; min-width: 0; }
+.row { display: flex; gap: 4px; align-items: flex-start; }
+.rowlabel { font-family: var(--f-mono); font-size: 12px; color: var(--muted); width: 74px; flex: none; padding-top: 10px; }
+.cell { width: 38px; flex: none; display: grid; justify-items: center; gap: 2px; }
+.box { width: 38px; height: 38px; border-radius: 6px; display: grid; place-items: center; font-family: var(--f-mono); font-size: 14px; border: 2px solid transparent; }
+.box.sig { background: var(--signal-soft); color: var(--ink); }
+.box.pad { background: var(--pad-soft); color: var(--pad); border: 2px dashed var(--pad); }
+.box.outb { background: var(--out-soft); color: var(--ink); }
+.box.hit { border-color: var(--kernel); background: var(--kernel-soft); }
+.box.sel { border-color: var(--out); box-shadow: 0 0 0 2px var(--out); }
+.idx { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.cnt { font-family: var(--f-mono); font-size: 12px; color: var(--kernel); }
+.stack { display: grid; gap: 10px; min-width: max-content; }
+.formula { font-family: var(--f-mono); font-size: 15px; background: var(--bg); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+.formula b { color: var(--kernel); font-weight: 500; }
+.badge { display: inline-block; font: 500 12px var(--f-mono); padding: 2px 8px; border-radius: 999px; background: var(--out-soft); color: var(--out); letter-spacing: .03em; }
+.badge.warn { background: var(--kernel-soft); color: var(--kernel); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+.big { display: flex; flex-wrap: wrap; gap: 10px 32px; align-items: baseline; }
+.big .v { font-family: var(--f-display); font-weight: 800; font-size: 40px; line-height: 1; color: var(--kernel); font-variant-numeric: tabular-nums; }
+.big .u { color: var(--muted); font-size: 14px; }
+table { border-collapse: collapse; font-size: 14px; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+td.m { font-family: var(--f-mono); }
+tr.tot td { font-weight: 600; border-bottom: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: 14px var(--f-mono); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); }
+.chip.on { border-color: var(--kernel); color: var(--kernel); }
+.note { font-size: 14px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 12px; max-width: 68ch; }
+pre { font-family: var(--f-mono); font-size: 13.5px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto; margin: 0; line-height: 1.55; }
+svg text { font-family: var(--f-mono); }
+.steps { display: grid; gap: 8px; padding-left: 20px; margin: 0; max-width: 68ch; }
+@media (max-width: 520px) { .big .v { font-size: 32px; } .bench { padding: 14px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">TP redes recurrentes · UCI HAR · material de estudio</div>
+    <h1>Laboratorio de convoluciones 1D</h1>
+    <p class="lead">Tres cuentas que aparecen en el TP, hechas con cajas: qué hace el padding, cómo crece lo que ve una CNN cuando cambiás el kernel, y de dónde sale que el gradiente de la RNN "multiplica por 0,58 en cada paso".</p>
+  </header>
+
+  <!-- 1. PADDING -->
+  <section id="padding">
+    <h2><span class="num">1</span>Una convolución, caja por caja</h2>
+    <p>El kernel es una ventanita de <b>k</b> pasos que se desliza sobre la señal. En cada posición multiplica cada valor por un peso y suma todo. Acá los pesos valen 1/k, así que cada salida es el promedio de los valores que cubre. En la red, los pesos los aprende el entrenamiento.</p>
+    <p>El <b>padding</b> agrega cajas con cero a los costados. Sin padding, el kernel no puede centrarse en los bordes y la salida sale más corta. Mové el control de posición para ver qué cajas usa cada salida.</p>
+    <div class="bench">
+      <div class="controls">
+        <div class="ctl"><span class="lbl">Tamaño del kernel (k)</span><div class="seg" id="k1"></div></div>
+        <div class="ctl"><label for="p1">Padding (p) <output id="p1o"></output></label><input type="range" id="p1" min="0" max="3" step="1" value="1"></div>
+        <div class="ctl"><label for="L1">Largo de la señal (L) <output id="L1o"></output></label><input type="range" id="L1" min="6" max="14" step="1" value="10"></div>
+        <div class="ctl"><label for="j1">Posición de la salida <output id="j1o"></output></label><input type="range" id="j1" min="0" max="9" step="1" value="0"></div>
+      </div>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--signal-soft)"></i>señal</span>
+        <span><i class="sw" style="background:var(--pad-soft);border:2px dashed var(--pad)"></i>padding (cero)</span>
+        <span><i class="sw" style="background:var(--kernel-soft);border:2px solid var(--kernel)"></i>lo que cubre el kernel</span>
+        <span><i class="sw" style="background:var(--out-soft)"></i>salida</span>
+      </div>
+      <div class="scroll"><div class="stack" id="viz1"></div></div>
+      <div class="formula" id="calc1"></div>
+      <div class="formula" id="len1"></div>
+      <p class="note">Mirá la fila "usos": cuántas veces entra cada caja de la señal en alguna salida. Sin padding, las cajas de los bordes se usan menos veces que las del centro, o sea que el modelo "mira menos" el principio y el final de la ventana. Con padding = (k − 1) / 2 la salida mide lo mismo que la entrada. A eso se le dice padding "same", y es lo que usa nuestra CNN: kernel 5 con padding 2.</p>
+    </div>
+  </section>
+
+  <!-- 2. CAMPO RECEPTIVO -->
+  <section id="campo">
+    <h2><span class="num">2</span>Campo receptivo: cuánto ve una neurona</h2>
+    <p>Una neurona de la primera capa ve k pasos. Una de la segunda capa ve k salidas de la primera, y cada una de esas ya veía k pasos, así que ve más. El MaxPool junta de a 2, y a partir de ahí cada caja representa 2 pasos de la señal original, así que las capas siguientes ven el doble de lejos con el mismo kernel.</p>
+    <div class="bench">
+      <div class="controls">
+        <div class="ctl"><span class="lbl">Tamaño del kernel (k)</span><div class="seg" id="k2"></div></div>
+        <div class="ctl"><label for="b2">Convoluciones antes del pool <output id="b2o"></output></label><input type="range" id="b2" min="1" max="3" step="1" value="2"></div>
+        <div class="ctl"><span class="lbl">MaxPool de 2</span><div class="seg" id="pool2"></div></div>
+        <div class="ctl"><label for="a2">Convoluciones después <output id="a2o"></output></label><input type="range" id="a2" min="0" max="3" step="1" value="1"></div>
+      </div>
+      <div class="big">
+        <div><div class="v" id="rf2"></div><div class="u">pasos de campo receptivo</div></div>
+        <div><div class="v" id="rfs2"></div><div class="u">segundos (a 50 Hz)</div></div>
+        <div><div class="v" id="rfp2"></div><div class="u">de la ventana de 128 pasos</div></div>
+      </div>
+      <p class="note" style="border:0;padding:0">Las cajas azules son las capas completas: con padding todas las filas tienen la misma cantidad de cajas. Las naranjas son el cono de una sola neurona, la verde: las cajas de las que depende. <b>Tocá cualquier caja de la fila de arriba</b> para ver su cono. Se muestran 48 pasos de la señal para que entre en pantalla.</p>
+      <div class="scroll"><svg id="svg2" role="img" aria-label="Cono de dependencias de una neurona a través de las capas"></svg></div>
+      <p class="note" id="borde2" hidden>Este cono llega al borde de la ventana: la parte que queda afuera la completan los ceros del padding.</p>
+      <h3>Por qué el cono suma y no multiplica</h3>
+      <p>Tomemos una neurona de la segunda capa. Mira <b>k</b> neuronas de la primera, y cada una de esas mira <b>k</b> pasos de la entrada. Cada fila de abajo es una de esas neuronas con los pasos que mira. Contando todas las cajas da k × k, pero las vecinas se superponen: solo los extremos agregan pasos nuevos.</p>
+      <div class="controls"><div class="ctl"><span class="lbl">Tamaño del kernel (k)</span><div class="seg" id="k4"></div></div></div>
+      <div class="scroll"><svg id="svg4" role="img" aria-label="Conteo de pasos que mira una neurona de la segunda capa"></svg></div>
+      <div class="formula" id="calc4"></div>
+      <h3>La cuenta, capa por capa</h3>
+      <div class="formula">RF = 1 + suma de (<b>k</b> − 1) × <b>salto</b> en cada capa &nbsp;·&nbsp; el salto empieza en 1 y se multiplica por el stride de cada capa (el pool tiene stride 2)</div>
+      <div class="scroll"><table id="tab2"></table></div>
+      <h3>Mismo armado, distintos kernels</h3>
+      <div class="chips" id="chips2"></div>
+      <p class="note">En el TP, la mezcla por bloques mostró que la CNN casi no pierde accuracy hasta bloques de 16 pasos y cae fuerte con bloques de 4. Con kernel 5 su campo receptivo es 18: mientras el bloque sea más grande que lo que mira cada neurona, el patrón queda entero. Con kernel 3 vería 10 pasos y con kernel 7 vería 26.</p>
+    </div>
+  </section>
+
+  <!-- 3. GRADIENTE -->
+  <section id="gradiente">
+    <h2><span class="num">3</span>De dónde sale "multiplica por 0,58 en cada paso"</h2>
+    <p>Para que el error del final llegue al paso 1, el gradiente viaja hacia atrás por la cadena h<sub>128</sub> → h<sub>127</sub> → … → h<sub>1</sub>. En cada eslabón se multiplica por algo parecido a un número <b>f</b>. Si f es menor que 1, después de muchos pasos queda casi nada.</p>
+    <div class="bench">
+      <div class="scroll"><svg id="chain3" role="img" aria-label="Cadena de estados de la RNN multiplicando por f"></svg></div>
+      <div class="controls">
+        <div class="ctl"><label for="f3">Factor por paso (f) <output id="f3o"></output></label><input type="range" id="f3" min="0.3" max="1.15" step="0.01" value="0.58"></div>
+        <div class="ctl"><label for="n3">Pasos hacia atrás (n) <output id="n3o"></output></label><input type="range" id="n3" min="1" max="127" step="1" value="127"></div>
+      </div>
+      <div class="formula" id="calc3"></div>
+      <div class="scroll"><svg id="plot3" role="img" aria-label="Gradiente por paso en escala logarítmica"></svg></div>
+      <p class="note">En escala logarítmica, multiplicar siempre por el mismo número se ve como una <b>recta</b>. Por eso las curvas de la RNN en tu gráfico "Modelo inicial" son rectas. Con f = 1 queda plana y con f mayor que 1 sube: es el gradiente que explota.</p>
+    </div>
+
+    <h3>La cuenta al revés, con tus números</h3>
+    <p>En el gráfico real no sabemos f, sabemos el gradiente en el primer y el último paso. Se despeja así:</p>
+    <ol class="steps">
+      <li><b>Órdenes de magnitud</b> = log<sub>10</sub>(gradiente al final ÷ gradiente al principio). Es cuántas veces hay que dividir por 10 para ir de uno al otro.</li>
+      <li>Se divide por la cantidad de eslabones de la cadena. Eso da cuántos órdenes se pierden por paso.</li>
+      <li><b>f</b> = 10<sup>−(órdenes por paso)</sup>.</li>
+    </ol>
+    <div class="scroll"><table id="tab3"></table></div>
+    <p class="note">Ejemplo con la primera fila: 1,15 × 10⁻⁴ ÷ 2,99 × 10⁻³⁴ da unos 29,6 órdenes. Dividido 127 pasos da 0,233 por paso, y 10<sup>−0,233</sup> ≈ 0,58. El híbrido pierde menos en total porque su LSTM recorre 64 pasos (el pool partió la secuencia a la mitad), aunque por paso decae parecido a la LSTM sola.</p>
+  </section>
+
+
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const fmt = (x, d = 1) => x.toFixed(d).replace('.', ',');
+  function sci(x) {
+    if (x === 0) return '0';
+    const e = Math.floor(Math.log10(Math.abs(x)));
+    if (e >= -2 && e <= 3) return fmt(x, e >= 0 ? 2 : 4);
+    const m = x / Math.pow(10, e);
+    return fmt(m, 2) + ' × 10^' + e;
+  }
+  function seg(el, opts, cur, onPick) {
+    el.innerHTML = '';
+    opts.forEach((o) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = o.label;
+      b.setAttribute('aria-pressed', String(o.value === cur));
+      b.addEventListener('click', () => onPick(o.value));
+      el.appendChild(b);
+    });
+  }
+
+  /* ---------- 1. padding ---------- */
+  const X = [2, 5, 1, 4, 6, 3, 7, 2, 5, 4, 3, 6, 1, 5];
+  const s1 = { k: 3, p: 1, L: 10, j: 0 };
+  function cellEl(cls, text, idx, extra) {
+    const c = document.createElement('div');
+    c.className = 'cell';
+    const b = document.createElement('div');
+    b.className = 'box ' + cls;
+    b.textContent = text;
+    c.appendChild(b);
+    const i = document.createElement('div');
+    i.className = extra || 'idx';
+    i.textContent = idx;
+    c.appendChild(i);
+    return c;
+  }
+  function row(label, cells) {
+    const r = document.createElement('div');
+    r.className = 'row';
+    const l = document.createElement('div');
+    l.className = 'rowlabel';
+    l.textContent = label;
+    r.appendChild(l);
+    cells.forEach((c) => r.appendChild(c));
+    return r;
+  }
+  function spacer() { const c = document.createElement('div'); c.className = 'cell'; return c; }
+  function draw1() {
+    const { k, p, L } = s1;
+    seg($('k1'), [1, 3, 5, 7].map((v) => ({ label: String(v), value: v })), k, (v) => { s1.k = v; draw1(); });
+    $('p1o').textContent = p; $('L1o').textContent = L;
+    const Lout = L + 2 * p - k + 1;
+    const jr = $('j1');
+    jr.max = Math.max(0, Lout - 1);
+    if (s1.j > Lout - 1) s1.j = Math.max(0, Lout - 1);
+    jr.value = s1.j; jr.disabled = Lout <= 0;
+    $('j1o').textContent = Lout > 0 ? s1.j : '-';
+    const padded = [];
+    for (let m = 0; m < L + 2 * p; m++) {
+      const t = m - p;
+      padded.push(t >= 0 && t < L ? { v: X[t], t } : { v: 0, t: null });
+    }
+    const inCells = padded.map((c, m) => {
+      const hit = Lout > 0 && m >= s1.j && m < s1.j + k;
+      return cellEl((c.t === null ? 'pad' : 'sig') + (hit ? ' hit' : ''), c.v, c.t === null ? '0' : 't' + c.t);
+    });
+    const useCells = padded.map((c, m) => {
+      if (c.t === null) return spacer();
+      let n = 0;
+      for (let j = 0; j < Lout; j++) if (m >= j && m < j + k) n++;
+      const d = document.createElement('div');
+      d.className = 'cell';
+      const t = document.createElement('div');
+      t.className = 'cnt';
+      t.textContent = n + '×';
+      d.appendChild(t);
+      return d;
+    });
+    const outs = [];
+    for (let j = 0; j < Lout; j++) {
+      let s = 0;
+      for (let q = 0; q < k; q++) s += padded[j + q].v;
+      outs.push(s / k);
+    }
+    const offset = Math.floor((k - 1) / 2);
+    const outCells = [];
+    for (let i = 0; i < offset; i++) outCells.push(spacer());
+    outs.forEach((v, j) => outCells.push(cellEl('outb' + (j === s1.j ? ' sel' : ''), fmt(v, 1).replace(',0', ''), 'y' + j)));
+    const viz = $('viz1');
+    viz.innerHTML = '';
+    viz.appendChild(row('entrada', inCells));
+    viz.appendChild(row('usos', useCells));
+    viz.appendChild(row('salida', outCells));
+    if (Lout > 0) {
+      const terms = padded.slice(s1.j, s1.j + k).map((c) => c.v);
+      $('calc1').innerHTML = 'y' + s1.j + ' = (' + terms.join(' + ') + ') / ' + k + ' = <b>' + fmt(outs[s1.j], 2) + '</b>' +
+        (terms.length && padded.slice(s1.j, s1.j + k).some((c) => c.t === null) ? ' &nbsp;<span class="badge warn">incluye ceros del padding</span>' : '');
+    } else {
+      $('calc1').innerHTML = 'El kernel es más largo que la señal con padding: no entra en ninguna posición.';
+    }
+    const same = Lout === L;
+    $('len1').innerHTML = 'largo de salida = L + 2·p − k + 1 = ' + L + ' + 2·' + p + ' − ' + k + ' + 1 = <b>' + Lout + '</b> &nbsp;' +
+      (same ? '<span class="badge">same: igual que la entrada</span>' : '<span class="badge warn">' + (Lout < L ? 'se acorta ' + (L - Lout) : 'se alarga ' + (Lout - L)) + '</span>');
+  }
+  $('p1').addEventListener('input', (e) => { s1.p = +e.target.value; draw1(); });
+  $('L1').addEventListener('input', (e) => { s1.L = +e.target.value; draw1(); });
+  $('j1').addEventListener('input', (e) => { s1.j = +e.target.value; draw1(); });
+
+  /* ---------- 2. campo receptivo ---------- */
+  const s2 = { k: 5, before: 2, pool: true, after: 1, u: null };
+  function layers(cfg) {
+    const out = [];
+    for (let i = 0; i < cfg.before; i++) out.push({ name: 'conv k=' + cfg.k, k: cfg.k, s: 1, pad: (cfg.k - 1) / 2 });
+    if (cfg.pool) out.push({ name: 'maxpool 2', k: 2, s: 2, pad: 0 });
+    for (let i = 0; i < cfg.after; i++) out.push({ name: 'conv k=' + cfg.k, k: cfg.k, s: 1, pad: (cfg.k - 1) / 2 });
+    return out;
+  }
+  function rfOf(ls) {
+    let rf = 1, jump = 1;
+    const rows = [];
+    ls.forEach((l) => {
+      const add = (l.k - 1) * jump;
+      rf += add;
+      rows.push({ name: l.name, k: l.k, s: l.s, jump, add, rf });
+      jump *= l.s;
+    });
+    return { rf, rows };
+  }
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs, text) {
+    const e = document.createElementNS(SVGNS, tag);
+    for (const a in attrs) e.setAttribute(a, attrs[a]);
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function draw2() {
+    seg($('k2'), [3, 5, 7, 9].map((v) => ({ label: String(v), value: v })), s2.k, (v) => { s2.k = v; draw2(); });
+    seg($('pool2'), [{ label: 'sí', value: true }, { label: 'no', value: false }], s2.pool, (v) => { s2.pool = v; draw2(); });
+    $('b2o').textContent = s2.before; $('a2o').textContent = s2.after;
+    const ls = layers(s2);
+    const { rf, rows } = rfOf(ls);
+    $('rf2').textContent = rf;
+    $('rfs2').textContent = fmt(rf / 50, 2);
+    $('rfp2').textContent = Math.round(100 * Math.min(rf, 128) / 128) + '%';
+
+    // tabla
+    let h = '<tr><th>Capa</th><th>k</th><th>stride</th><th>salto</th><th>suma (k − 1) × salto</th><th>campo receptivo</th></tr>';
+    h += '<tr><td>entrada</td><td class="m">-</td><td class="m">-</td><td class="m">-</td><td class="m">-</td><td class="m">1</td></tr>';
+    rows.forEach((r) => {
+      h += '<tr><td>' + r.name + '</td><td class="m">' + r.k + '</td><td class="m">' + r.s + '</td><td class="m">' + r.jump +
+        '</td><td class="m">(' + r.k + ' − 1) × ' + r.jump + ' = ' + r.add + '</td><td class="m">' + r.rf + '</td></tr>';
+    });
+    h += '<tr class="tot"><td colspan="5">Total</td><td class="m">' + rf + ' pasos</td></tr>';
+    $('tab2').innerHTML = h;
+
+    // chips
+    const ch = $('chips2');
+    ch.innerHTML = '';
+    [3, 5, 7, 9].forEach((k) => {
+      const r = rfOf(layers(Object.assign({}, s2, { k }))).rf;
+      const d = document.createElement('span');
+      d.className = 'chip' + (k === s2.k ? ' on' : '');
+      d.textContent = 'k = ' + k + ' → ' + r + ' pasos';
+      ch.appendChild(d);
+    });
+
+    // pirámide
+    const N = 48, cell = 13, gapY = 12, bh = 20, labW = 88;
+    const svg = $('svg2');
+    svg.innerHTML = '';
+    // jumps por fila: fila 0 = entrada
+    const rowsInfo = [{ name: 'entrada', J: 1 }];
+    let J = 1;
+    ls.forEach((l) => { J *= l.s; rowsInfo.push({ name: l.name, J }); });
+    // intervalos hacia atrás, en índices de unidades
+    const nUnits = rowsInfo.map((r) => Math.floor(N / r.J));
+    const last = rowsInfo.length - 1;
+    const intervals = new Array(rowsInfo.length);
+    if (s2.u === null || s2.u > nUnits[last] - 1) s2.u = Math.floor(nUnits[last] / 2);
+    const u = s2.u;
+    intervals[last] = [u, u];
+    for (let i = last; i >= 1; i--) {
+      const l = ls[i - 1];
+      const [a, b] = intervals[i];
+      intervals[i - 1] = [a * l.s - l.pad, b * l.s - l.pad + l.k - 1];
+    }
+    const H = rowsInfo.length * (bh + gapY) + 14;
+    const cntW = 64;
+    const W = labW + N * cell + 8 + cntW;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('width', W);
+    svg.setAttribute('height', H);
+    const cSig = css('--signal-soft'), cHit = css('--kernel'), cHitSoft = css('--kernel-soft'), cMuted = css('--muted'), cOut = css('--out');
+    rowsInfo.forEach((r, i) => {
+      const y = H - 14 - (i + 1) * (bh + gapY) + gapY;
+      svg.appendChild(el('text', { x: 0, y: y + bh - 6, 'font-size': 11, fill: cMuted }, r.name));
+      const [a, b] = intervals[i];
+      for (let q = 0; q < nUnits[i]; q++) {
+        const inside = q >= a && q <= b;
+        const top = i === last && q === u;
+        const x = labW + q * r.J * cell;
+        const rect = el('rect', {
+          x: x + 1, y, width: r.J * cell - 2, height: bh, rx: 3,
+          fill: top ? cOut : inside ? cHitSoft : cSig,
+          stroke: inside ? cHit : 'none', 'stroke-width': inside ? 1.5 : 0
+        });
+        if (i === last) {
+          rect.style.cursor = 'pointer';
+          rect.addEventListener('click', () => { s2.u = q; draw2(); });
+        }
+        svg.appendChild(rect);
+      }
+      svg.appendChild(el('text', { x: labW + N * cell + 14, y: y + bh - 6, 'font-size': 11, fill: cHit }, (b - a + 1) + (b - a === 0 ? ' caja' : ' cajas')));
+    });
+    const [ia, ib] = intervals[0];
+    const ca = Math.max(ia, 0), cb = Math.min(ib, N - 1);
+    const yb = H - 4;
+    svg.appendChild(el('line', { x1: labW + ca * cell, x2: labW + (cb + 1) * cell, y1: yb - 4, y2: yb - 4, stroke: cHit, 'stroke-width': 2 }));
+    svg.appendChild(el('text', { x: labW + ((ca + cb + 1) / 2) * cell, y: yb + 8, 'font-size': 11, fill: cHit, 'text-anchor': 'middle' }, (ib - ia + 1) + ' pasos'));
+    svg.setAttribute('height', H + 12);
+    $('borde2').hidden = !(ia < 0 || ib > N - 1);
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + (H + 12));
+  }
+  /* ---------- 2b. conteo de superposición ---------- */
+  const s4 = { k: 5 };
+  function draw4() {
+    const k = s4.k, h = (k - 1) / 2, c = 10;
+    seg($('k4'), [3, 5, 7].map((v) => ({ label: String(v), value: v })), k, (v) => { s4.k = v; draw4(); });
+    const lo = c - 2 * h, hi = c + 2 * h, n = hi - lo + 1;
+    const cw = 34, bs = 28, labW = 150, rightW = 110, rowH = 36;
+    const neur = []; for (let j = c - h; j <= c + h; j++) neur.push(j);
+    const H = 34 + neur.length * rowH + 16 + 30 + rowH + 8;
+    const W = labW + n * cw + rightW;
+    const svg = $('svg4');
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('width', W); svg.setAttribute('height', H);
+    const cK = css('--kernel'), cKs = css('--kernel-soft'), cO = css('--out'), cOs = css('--out-soft'), cM = css('--muted'), cI = css('--ink'), cL = css('--line');
+    const X = (p) => labW + (p - lo) * cw + cw / 2;
+    for (let p = lo; p <= hi; p++) svg.appendChild(el('text', { x: X(p), y: 18, 'font-size': 12, fill: cM, 'text-anchor': 'middle' }, p));
+    neur.forEach((j, r) => {
+      const y = 30 + r * rowH;
+      svg.appendChild(el('text', { x: 0, y: y + bs / 2 + 4, 'font-size': 12, fill: cI }, 'neurona ' + j + ' (capa 1)'));
+      for (let p = j - h; p <= j + h; p++) {
+        svg.appendChild(el('rect', { x: X(p) - bs / 2, y, width: bs, height: bs, rx: 4, fill: cKs, stroke: cK, 'stroke-width': 1.3 }));
+        svg.appendChild(el('text', { x: X(p), y: y + bs / 2 + 4, 'font-size': 11, fill: cI, 'text-anchor': 'middle' }, p));
+      }
+      svg.appendChild(el('text', { x: labW + n * cw + 12, y: y + bs / 2 + 4, 'font-size': 12, fill: cK }, k + ' pasos'));
+    });
+    const yl = 30 + neur.length * rowH + 4;
+    svg.appendChild(el('line', { x1: labW, x2: labW + n * cw, y1: yl, y2: yl, stroke: cL }));
+    const yc = yl + 22;
+    svg.appendChild(el('text', { x: 0, y: yc, 'font-size': 12, fill: cI }, 'veces que aparece'));
+    for (let p = lo; p <= hi; p++) {
+      const cnt = neur.filter((j) => Math.abs(p - j) <= h).length;
+      svg.appendChild(el('text', { x: X(p), y: yc, 'font-size': 12, fill: cK, 'text-anchor': 'middle' }, cnt + '×'));
+    }
+    svg.appendChild(el('text', { x: labW + n * cw + 12, y: yc, 'font-size': 12, fill: cK }, 'suma ' + k * k));
+    const yd = yc + 14;
+    svg.appendChild(el('text', { x: 0, y: yd + bs / 2 + 4, 'font-size': 12, fill: cI }, 'pasos distintos'));
+    for (let p = lo; p <= hi; p++) {
+      svg.appendChild(el('rect', { x: X(p) - bs / 2, y: yd, width: bs, height: bs, rx: 4, fill: cOs, stroke: cO, 'stroke-width': 1.3 }));
+      svg.appendChild(el('text', { x: X(p), y: yd + bs / 2 + 4, 'font-size': 11, fill: cI, 'text-anchor': 'middle' }, p));
+    }
+    svg.appendChild(el('text', { x: labW + n * cw + 12, y: yd + bs / 2 + 4, 'font-size': 12, fill: cO, 'font-weight': 600 }, n + ' pasos'));
+    $('calc4').innerHTML = 'cajas en total = k × k = ' + k + ' × ' + k + ' = <b>' + k * k + '</b> &nbsp;·&nbsp; pasos distintos = 2k − 1 = <b>' + n + '</b> &nbsp;·&nbsp; la capa sumó k − 1 = ' + (k - 1) + ' pasos al cono';
+  }
+
+  $('b2').addEventListener('input', (e) => { s2.before = +e.target.value; draw2(); });
+  $('a2').addEventListener('input', (e) => { s2.after = +e.target.value; draw2(); });
+
+  /* ---------- 3. gradiente ---------- */
+  const s3 = { f: 0.58, n: 127 };
+  function drawChain() {
+    const svg = $('chain3');
+    svg.innerHTML = '';
+    const labels = ['h₁₂₈', 'h₁₂₇', 'h₁₂₆', 'h₁₂₅', '…', 'h₁'];
+    const vals = [1, s3.f, Math.pow(s3.f, 2), Math.pow(s3.f, 3), null, Math.pow(s3.f, 127)];
+    const bw = 70, gap = 44, H = 96, W = labels.length * bw + (labels.length - 1) * gap + 4;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('width', W); svg.setAttribute('height', H);
+    const cBox = css('--signal-soft'), cInk = css('--ink'), cK = css('--kernel'), cM = css('--muted');
+    labels.forEach((l, i) => {
+      const x = 2 + i * (bw + gap);
+      if (l === '…') {
+        svg.appendChild(el('text', { x: x + bw / 2, y: 40, 'font-size': 20, fill: cM, 'text-anchor': 'middle' }, '…'));
+      } else {
+        svg.appendChild(el('rect', { x, y: 14, width: bw, height: 40, rx: 6, fill: cBox }));
+        svg.appendChild(el('text', { x: x + bw / 2, y: 39, 'font-size': 14, fill: cInk, 'text-anchor': 'middle' }, l));
+        svg.appendChild(el('text', { x: x + bw / 2, y: 76, 'font-size': 11, fill: cM, 'text-anchor': 'middle' }, 'grad ' + sci(vals[i])));
+      }
+      if (i < labels.length - 1) {
+        const ax = x + bw + 4, bx = x + bw + gap - 4;
+        svg.appendChild(el('line', { x1: ax, x2: bx, y1: 34, y2: 34, stroke: cK, 'stroke-width': 1.5 }));
+        svg.appendChild(el('path', { d: 'M' + bx + ' 34 l-6 -4 v8 z', fill: cK }));
+        svg.appendChild(el('text', { x: (ax + bx) / 2, y: 26, 'font-size': 11, fill: cK, 'text-anchor': 'middle' }, '× f'));
+      }
+    });
+  }
+  function draw3() {
+    const { f, n } = s3;
+    $('f3o').textContent = fmt(f, 2); $('n3o').textContent = n;
+    drawChain();
+    const g = Math.pow(f, n);
+    const ord = n * Math.log10(f);
+    $('calc3').innerHTML = 'gradiente después de ' + n + ' pasos = f<sup>' + n + '</sup> = ' + fmt(f, 2) + '<sup>' + n + '</sup> = <b>' + sci(g) +
+      '</b> &nbsp;·&nbsp; órdenes de magnitud = ' + n + ' × log₁₀(' + fmt(f, 2) + ') = <b>' + fmt(ord, 1) + '</b>';
+    // plot
+    const svg = $('plot3');
+    svg.innerHTML = '';
+    const W = 640, H = 250, ml = 62, mr = 14, mt = 12, mb = 40;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('width', W); svg.setAttribute('height', H);
+    const total = 127 * Math.log10(f);
+    let lo = Math.min(0, total), hi = Math.max(0, total);
+    if (hi - lo < 2) { lo -= 1; hi += 1; }
+    const step = (hi - lo) > 30 ? 10 : (hi - lo) > 12 ? 5 : (hi - lo) > 5 ? 2 : 1;
+    lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+    const X = (t) => ml + (t / 127) * (W - ml - mr);
+    const Y = (v) => mt + (hi - v) / (hi - lo) * (H - mt - mb);
+    const cL = css('--line'), cM = css('--muted'), cS = css('--signal'), cK = css('--kernel');
+    for (let v = lo; v <= hi + 1e-9; v += step) {
+      svg.appendChild(el('line', { x1: ml, x2: W - mr, y1: Y(v), y2: Y(v), stroke: cL, 'stroke-width': 1 }));
+      svg.appendChild(el('text', { x: ml - 8, y: Y(v) + 4, 'font-size': 11, fill: cM, 'text-anchor': 'end' }, v === 0 ? '1' : '10^' + v));
+    }
+    [0, 32, 64, 96, 127].forEach((t) => {
+      svg.appendChild(el('text', { x: X(t), y: H - mb + 18, 'font-size': 11, fill: cM, 'text-anchor': 'middle' }, t));
+    });
+    svg.appendChild(el('text', { x: (ml + W - mr) / 2, y: H - 6, 'font-size': 11, fill: cM, 'text-anchor': 'middle' }, 'paso de tiempo (el gradiente parte del paso 127)'));
+    let d = '';
+    for (let t = 0; t <= 127; t++) {
+      const v = (127 - t) * Math.log10(f);
+      d += (t ? 'L' : 'M') + X(t).toFixed(1) + ' ' + Y(v).toFixed(1);
+    }
+    svg.appendChild(el('path', { d, fill: 'none', stroke: cS, 'stroke-width': 2.5 }));
+    const tn = 127 - n;
+    svg.appendChild(el('circle', { cx: X(tn), cy: Y(n * Math.log10(f)), r: 5, fill: cK }));
+    svg.appendChild(el('circle', { cx: X(127), cy: Y(0), r: 4, fill: cS }));
+  }
+  $('f3').addEventListener('input', (e) => { s3.f = +e.target.value; draw3(); });
+  $('n3').addEventListener('input', (e) => { s3.n = +e.target.value; draw3(); });
+
+  // tabla con los datos reales de resultados.json
+  const real = [
+    { m: 'RNN simple (recién creada)', fin: 1.15e-4, ini: 2.99e-34, pasos: 127 },
+    { m: 'LSTM (recién creada)', fin: 4.62e-5, ini: 1.38e-27, pasos: 127 },
+    { m: 'CNN + LSTM (recién creada)', fin: 9.85e-6, ini: 1.64e-18, pasos: 64 },
+    { m: 'RNN simple (entrenada)', fin: 1.47e-4, ini: 8.94e-9, pasos: 127 },
+    { m: 'LSTM (entrenada)', fin: 3.06e-5, ini: 1.58e-6, pasos: 127 }
+  ];
+  let t = '<tr><th>Modelo</th><th>grad. al final</th><th>grad. al principio</th><th>órdenes</th><th>eslabones</th><th>órdenes por paso</th><th>f</th></tr>';
+  real.forEach((r) => {
+    const o = Math.log10(r.fin / r.ini), pp = o / r.pasos, f = Math.pow(10, -pp);
+    t += '<tr><td>' + r.m + '</td><td class="m">' + sci(r.fin) + '</td><td class="m">' + sci(r.ini) + '</td><td class="m">' + fmt(o, 1) +
+      '</td><td class="m">' + r.pasos + '</td><td class="m">' + fmt(pp, 3) + '</td><td class="m"><b>' + fmt(f, 2) + '</b></td></tr>';
+  });
+  $('tab3').innerHTML = t;
+
+  function all() { draw1(); draw2(); draw4(); draw3(); }
+  all();
+  try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', all); } catch (e) {}
+  new MutationObserver(all).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+})();
+</script>
+</body>
+</html>
