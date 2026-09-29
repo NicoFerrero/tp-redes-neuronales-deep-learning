@@ -25,6 +25,7 @@ El análisis completo está en `informe_nicolas_ferrero.pdf`.
 - `tp_nicolas_ferrero.ipynb`: notebook con todo el trabajo, ya ejecutado.
 - `informe_nicolas_ferrero.pdf`: informe.
 - `resultados/`: figuras y `resultados.json` con los números de la corrida.
+- - `docs/index.html`: página interactiva para estudiar el padding, el campo receptivo y el desvanecimiento del gradiente. Se puede usar en https://nicoferrero.github.io/tp-redes-neuronales-deep-learning/
 
 ## Cómo reproducirlo
 
