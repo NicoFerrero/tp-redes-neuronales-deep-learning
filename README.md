@@ -22,8 +22,8 @@ El análisis completo está en `Informe_TP_RNN_HAR.pdf`.
 
 ## Contenido
 
-- `rnn_har.ipynb`: notebook con todo el trabajo, ya ejecutado.
-- `Informe_TP_RNN_HAR.pdf`: informe.
+- `tp_nicolas_ferrero.ipynb`: notebook con todo el trabajo, ya ejecutado.
+- `informe_nicolas_ferrero.pdf`: informe.
 - `resultados/`: figuras y `resultados.json` con los números de la corrida.
 
 ## Cómo reproducirlo
